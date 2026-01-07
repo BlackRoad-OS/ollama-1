@@ -18,7 +18,7 @@ const (
 	CharCtrlL     = 12
 	CharEnter     = 13
 	CharNext      = 14
-	CharCtrlO     = 15 // Ctrl+O - used for expanding tool output
+	CharCtrlO     = 15 // Ctrl+O - opens pager for tool output
 	CharPrev      = 16
 	CharBckSearch = 18
 	CharFwdSearch = 19
@@ -66,6 +66,10 @@ const (
 
 	StartBracketedPaste = Esc + "[?2004h"
 	EndBracketedPaste   = Esc + "[?2004l"
+
+	// Alternate screen buffer (used by pagers like less/vim to restore view on exit)
+	EnterAltScreen = Esc + "[?1049h"
+	ExitAltScreen  = Esc + "[?1049l"
 )
 
 func CursorUpN(n int) string {

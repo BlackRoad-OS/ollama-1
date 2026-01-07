@@ -142,8 +142,8 @@ type RunOptions struct {
 	// for Ctrl+O expansion. Updated by Chat(), read by caller.
 	LastToolOutput *string
 
-	// LastToolOutputTruncated stores the truncated version shown inline
-	LastToolOutputTruncated *string
+	// Scanner for setting raw mode during streaming (prevents Ctrl+O terminal interpretation)
+	Scanner *readline.Instance
 }
 
 // Chat runs an agent chat loop with tool support.
@@ -185,6 +185,12 @@ func Chat(ctx context.Context, opts RunOptions) (*api.Message, error) {
 	var thinkTagClosed bool = false
 	var pendingToolCalls []api.ToolCall
 	var consecutiveErrors int // Track consecutive 500 errors for retry limit
+
+	// Enable raw mode during streaming to prevent terminal from interpreting Ctrl+O
+	if opts.Scanner != nil {
+		opts.Scanner.SetRawMode(true)
+		defer opts.Scanner.SetRawMode(false)
+	}
 
 	role := "assistant"
 	messages := opts.Messages
@@ -446,23 +452,18 @@ func Chat(ctx context.Context, opts RunOptions) (*api.Message, error) {
 		toolSuccess:
 
 			// Display tool output (truncated for display)
-			truncatedOutput := ""
 			if toolResult != "" {
 				output := toolResult
 				if len(output) > 300 {
-					output = output[:300] + "... (truncated, press Ctrl+O to expand)"
+					output = output[:300] + "... (truncated, press Ctrl+O to view)"
 				}
-				truncatedOutput = output
 				// Show result in grey, indented
 				fmt.Fprintf(os.Stderr, "\033[90m  %s\033[0m\n", strings.ReplaceAll(output, "\n", "\n  "))
 			}
 
-			// Store full and truncated output for Ctrl+O toggle
+			// Store full output for Ctrl+O pager
 			if opts.LastToolOutput != nil {
 				*opts.LastToolOutput = toolResult
-			}
-			if opts.LastToolOutputTruncated != nil {
-				*opts.LastToolOutputTruncated = truncatedOutput
 			}
 
 			// Truncate output to prevent context overflow
@@ -690,11 +691,6 @@ func GenerateInteractive(cmd *cobra.Command, modelName string, wordWrap bool, op
 	var messages []api.Message
 	var sb strings.Builder
 
-	// Track last tool output for Ctrl+O toggle
-	var lastToolOutput string
-	var lastToolOutputTruncated string
-	var toolOutputExpanded bool
-
 	for {
 		line, err := scanner.Readline()
 		switch {
@@ -706,20 +702,6 @@ func GenerateInteractive(cmd *cobra.Command, modelName string, wordWrap bool, op
 				fmt.Println("\nUse Ctrl + d or /bye to exit.")
 			}
 			sb.Reset()
-			continue
-		case errors.Is(err, readline.ErrExpandOutput):
-			// Ctrl+O pressed - toggle between expanded and collapsed tool output
-			if lastToolOutput == "" {
-				fmt.Fprintf(os.Stderr, "\033[90mNo tool output to expand\033[0m\n")
-			} else if toolOutputExpanded {
-				// Currently expanded, show truncated
-				fmt.Fprintf(os.Stderr, "\033[90m  %s\033[0m\n", strings.ReplaceAll(lastToolOutputTruncated, "\n", "\n  "))
-				toolOutputExpanded = false
-			} else {
-				// Currently collapsed, show full
-				fmt.Fprintf(os.Stderr, "\033[90m  %s\033[0m\n", strings.ReplaceAll(lastToolOutput, "\n", "\n  "))
-				toolOutputExpanded = true
-			}
 			continue
 		case err != nil:
 			return err
@@ -758,22 +740,21 @@ func GenerateInteractive(cmd *cobra.Command, modelName string, wordWrap bool, op
 			newMessage := api.Message{Role: "user", Content: sb.String()}
 			messages = append(messages, newMessage)
 
+			var lastToolOutput string
 			opts := RunOptions{
-				Model:                   modelName,
-				Messages:                messages,
-				WordWrap:                wordWrap,
-				Options:                 options,
-				Think:                   think,
-				HideThinking:            hideThinking,
-				KeepAlive:               keepAlive,
-				Tools:                   toolRegistry,
-				Approval:                approval,
-				YoloMode:                yoloMode,
-				LastToolOutput:          &lastToolOutput,
-				LastToolOutputTruncated: &lastToolOutputTruncated,
+				Model:          modelName,
+				Messages:       messages,
+				WordWrap:       wordWrap,
+				Options:        options,
+				Think:          think,
+				HideThinking:   hideThinking,
+				KeepAlive:      keepAlive,
+				Tools:          toolRegistry,
+				Approval:       approval,
+				YoloMode:       yoloMode,
+				LastToolOutput: &lastToolOutput,
+				Scanner:        scanner,
 			}
-			// Reset expanded state for new tool execution
-			toolOutputExpanded = false
 
 			assistant, err := Chat(cmd.Context(), opts)
 			if err != nil {
@@ -782,6 +763,9 @@ func GenerateInteractive(cmd *cobra.Command, modelName string, wordWrap bool, op
 			if assistant != nil {
 				messages = append(messages, *assistant)
 			}
+
+			// Update scanner's tool output for Ctrl+O pager
+			scanner.ToolOutput = lastToolOutput
 
 			sb.Reset()
 		}

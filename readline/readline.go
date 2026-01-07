@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
+
+	"golang.org/x/term"
 )
 
 type Prompt struct {
@@ -36,10 +39,11 @@ type Terminal struct {
 }
 
 type Instance struct {
-	Prompt   *Prompt
-	Terminal *Terminal
-	History  *History
-	Pasting  bool
+	Prompt     *Prompt
+	Terminal   *Terminal
+	History    *History
+	Pasting    bool
+	ToolOutput string // Last tool output for Ctrl+O expansion
 }
 
 func New(prompt Prompt) (*Instance, error) {
@@ -207,8 +211,16 @@ func (i *Instance) Readline() (string, error) {
 		case CharCtrlL:
 			buf.ClearScreen()
 		case CharCtrlO:
-			// Ctrl+O - expand tool output
-			return "", ErrExpandOutput
+			// Ctrl+O - show tool output in pager
+			if i.ToolOutput == "" {
+				// No output to show, just beep
+				fmt.Print("\a")
+				continue
+			}
+
+			// Show pager in alternate screen (original view restored on exit)
+			showPager(i.ToolOutput)
+			continue
 		case CharCtrlW:
 			buf.DeleteWord()
 		case CharCtrlZ:
@@ -232,6 +244,21 @@ func (i *Instance) Readline() (string, error) {
 				buf.Add(r)
 			}
 		}
+	}
+}
+
+// SetRawMode enables raw mode to prevent terminal from interpreting control chars
+func (i *Instance) SetRawMode(on bool) {
+	fd := os.Stdin.Fd()
+	if on && !i.Terminal.rawmode {
+		termios, err := SetRawMode(fd)
+		if err == nil {
+			i.Terminal.rawmode = true
+			i.Terminal.termios = termios
+		}
+	} else if !on && i.Terminal.rawmode {
+		UnsetRawMode(fd, i.Terminal.termios)
+		i.Terminal.rawmode = false
 	}
 }
 
@@ -284,4 +311,113 @@ func (t *Terminal) Read() (rune, error) {
 		return 0, err
 	}
 	return r, nil
+}
+
+// showPager displays content in a simple pager that exits on 'q' or Ctrl+O
+func showPager(content string) {
+	lines := strings.Split(content, "\n")
+	offset := 0
+
+	// Get terminal size (default to 80x24 if we can't determine)
+	termWidth, termHeight := 80, 24
+	if w, h, err := term.GetSize(int(os.Stdout.Fd())); err == nil {
+		termWidth, termHeight = w, h-1 // Leave room for status line
+	}
+
+	// Enter alternate screen buffer (preserves chat history)
+	fmt.Print(EnterAltScreen)
+	defer fmt.Print(ExitAltScreen)
+
+	reader := bufio.NewReader(os.Stdin)
+
+	for {
+		// Clear screen and move cursor to top
+		fmt.Print(ClearScreen + CursorReset)
+
+		// Display visible lines
+		end := offset + termHeight
+		if end > len(lines) {
+			end = len(lines)
+		}
+		for i := offset; i < end; i++ {
+			line := lines[i]
+			if len(line) > termWidth {
+				line = line[:termWidth]
+			}
+			fmt.Println(line)
+		}
+
+		// Show status line
+		fmt.Printf(ColorGrey+"[Lines %d-%d of %d] Press q or Ctrl+O to exit, j/k or arrows to scroll"+ColorDefault, offset+1, end, len(lines))
+
+		// Read input
+		r, _, err := reader.ReadRune()
+		if err != nil {
+			return
+		}
+
+		switch r {
+		case 'q', 'Q', CharCtrlO, CharInterrupt:
+			return
+		case 'j', CharCtrlJ, CharEnter:
+			if offset < len(lines)-termHeight {
+				offset++
+			}
+		case 'k':
+			if offset > 0 {
+				offset--
+			}
+		case ' ', CharForward: // Page down (space or Ctrl+F)
+			offset += termHeight
+			if offset > len(lines)-termHeight {
+				offset = len(lines) - termHeight
+				if offset < 0 {
+					offset = 0
+				}
+			}
+		case CharBackward: // Page up (Ctrl+B)
+			offset -= termHeight
+			if offset < 0 {
+				offset = 0
+			}
+		case 'g': // Go to top
+			offset = 0
+		case 'G': // Go to bottom
+			offset = len(lines) - termHeight
+			if offset < 0 {
+				offset = 0
+			}
+		case CharEsc:
+			// Handle escape sequences for arrow keys
+			r2, _, _ := reader.ReadRune()
+			if r2 == '[' {
+				r3, _, _ := reader.ReadRune()
+				switch r3 {
+				case 'A': // Up
+					if offset > 0 {
+						offset--
+					}
+				case 'B': // Down
+					if offset < len(lines)-termHeight {
+						offset++
+					}
+				case '5': // Page up
+					reader.ReadRune() // consume ~
+					offset -= termHeight
+					if offset < 0 {
+						offset = 0
+					}
+				case '6': // Page down
+					reader.ReadRune() // consume ~
+					offset += termHeight
+					if offset > len(lines)-termHeight {
+						offset = len(lines) - termHeight
+						if offset < 0 {
+							offset = 0
+						}
+					}
+				}
+			}
+		}
+	}
 }
