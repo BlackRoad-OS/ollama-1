@@ -1,21 +1,48 @@
-MIT License
+PROPRIETARY LICENSE
 
-Copyright (c) Ollama
+Copyright (c) 2026 BlackRoad OS, Inc.
+All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+CEO: Alexa Amundson
+Organization: BlackRoad OS, Inc.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+PROPRIETARY AND CONFIDENTIAL
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+This software and associated documentation files (the "Software") are the
+proprietary and confidential information of BlackRoad OS, Inc.
+
+GRANT OF LICENSE:
+Subject to the terms of this license, BlackRoad OS, Inc. grants you a
+limited, non-exclusive, non-transferable, revocable license to:
+- View and study the source code for educational purposes
+- Use the Software for testing and evaluation purposes only
+- Fork the repository for personal experimentation
+
+RESTRICTIONS:
+You may NOT:
+- Use the Software for any commercial purpose
+- Resell, redistribute, or sublicense the Software
+- Use the Software in production environments without written permission
+- Remove or modify this license or any copyright notices
+- Create derivative works for commercial distribution
+
+TESTING ONLY:
+This Software is provided purely for testing, evaluation, and educational
+purposes. It is NOT licensed for commercial use or resale.
+
+INFRASTRUCTURE SCALE:
+This Software is designed to support:
+- 30,000 AI Agents
+- 30,000 Human Employees
+- Enterprise-scale operations under BlackRoad OS, Inc.
+
+OWNERSHIP:
+All intellectual property rights remain the exclusive property of
+BlackRoad OS, Inc.
+
+For commercial licensing inquiries, contact:
+BlackRoad OS, Inc.
+Alexa Amundson, CEO
+blackroad.systems@gmail.com
+
+Last Updated: 2026-01-08
