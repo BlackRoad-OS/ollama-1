@@ -1,0 +1,12 @@
+# BlackRoad OS Code Owners
+# These owners will be requested for review on PRs
+
+# Default owners for everything
+* @BlackRoad-OS/core-team
+
+# Documentation
+*.md @BlackRoad-OS/docs-team
+/docs/ @BlackRoad-OS/docs-team
+
+# CI/CD
+/.github/ @BlackRoad-OS/devops-team
